@@ -8,6 +8,10 @@
         .container {
             max-width: 560px;
         }
+         .field-error {
+            border-color: #dc3545;
+            color: #dc3545;
+        }
     </style>
 </head>
 <body>
@@ -19,17 +23,43 @@
     </div>
 
     <form action="item.html" th:action th:object="${item}" method="post">
+        <!-- 타임리프의 th:if 이용하여, key 가 globalError 인 값이 존재할때 표시된다. -->
+        <div th:if="${errors?.containsKey('globalError')}">
+            <p class="field-error" th:text="${errors['globalError']}">전체 오류 메시지</p>
+        </div>
         <div>
             <label for="itemName" th:text="#{label.item.itemName}">상품명</label>
-            <input type="text" id="itemName" th:field="*{itemName}" class="form-control" placeholder="이름을 입력하세요">
+            <!--
+            <input type="text" id="itemName" th:field="*{itemName}" class="form-control" placeholder="이름을 입력하세요"
+                   th:class="${errors?.containsKey('itemName')} ? 'form-control field-error' : 'form-control'">
+            -->
+            <!-- th:classappend 를 사용해서 해당 필드에 오류가 있으면, field-error 이라는 클래스 정보를 추가하는 방법
+                 만약 값이 없으면, _ (No-Operation) 을 사용하므로 아무것도 하지 않는다. -->
+            <input type="text" id="itemName" th:field="*{itemName}" class="form-control" placeholder="이름을 입력하세요"
+                   th:classappend="${errors?.containsKey('itemName')} ? 'field-error' : _">
+            <!-- 타임리프의 th:if 이용하여, key 가 globalError 인 값이 존재할때 표시된다. -->
+            <div th:if="${errors?.containsKey('itemName')}">
+                <p class="field-error" th:text="${errors['itemName']}">상품명 오류</p>
+            </div>
         </div>
         <div>
             <label for="price" th:text="#{label.item.price}">가격</label>
-            <input type="text" id="price" th:field="*{price}" class="form-control" placeholder="가격을 입력하세요">
+            <!-- th:class 를 사용해서 해당 필드에 오류가 있을때 class 정보 전체를 지정하는 방법 -->
+            <input type="text" id="price" th:field="*{price}" class="form-control" placeholder="가격을 입력하세요"
+                   th:class="${errors?.containsKey('price')} ? 'form-control field-error' : 'form-control'">
+            <!-- 타임리프의 th:if 이용하여, key 가 price 인 값이 존재할때 표시된다. -->
+            <div th:if="${errors?.containsKey('price')}">
+                <p class="field-error" th:text="${errors['price']}">가격 오류</p>
+            </div>
         </div>
         <div>
             <label for="quantity" th:text="#{label.item.quantity}">수량</label>
-            <input type="text" id="quantity" th:field="*{quantity}" class="form-control" placeholder="수량을 입력하세요">
+            <input type="text" id="quantity" th:field="*{quantity}" class="form-control" placeholder="수량을 입력하세요"
+                   th:class="${errors?.containsKey('quantity')} ? 'form-control field-error' : 'form-control'">
+            <!-- 타임리프의 th:if 이용하여, key 가 quantity 인 값이 존재할때 표시된다. -->
+            <div th:if="${errors?.containsKey('quantity')}">
+                <p class="field-error" th:text="${errors['quantity']}">수량 오류</p>
+            </div>
         </div>
 
         <hr class="my-4">
@@ -51,3 +81,28 @@
 </div> <!-- /container -->
 </body>
 </html>
+<!--
+※ Safe Navigation Operator
+만약 errors 가 null 이라면?
+등록 폼에 진입했을 시점에서는 errors 가 null 이다.
+따라서 errors.containKey() 를 호출하는 순간 NullPointerException 이 발생한다.
+
+<div th:if="${errors?.containsKey('quantity')}">
+error?. 은 errors 가 null 일때 NullPointerException 이 발생하는 대신, null 을 반환하는 문법이다.
+th:if 에서 null 은 실패로 처리되므로 오류 메시지가 출력되지 않는다. (SpringEL 문법)
+
+정리
+검증 오류가 발생하면, 입력폼을 다시 보여준다.
+검증 오류가 발생한 원인을 사용자에게 안내하여 다시 입력할 수 있게 한다.
+검증 오류가 발생해도 사용자가 입력한 데이터는 유지된다.
+
+이러한 방식의 과제, 문제점
+- 뷰 템플릿에서 중복 처리가 너무 많다.
+- 타입 오류 처리가 안된다. Integer 타입의 price, quantity 같은 필드는 문자가 들어오면 오류가 발생한다.
+  그런데 이러한 오류는 스프링 MVC 에서 컨트롤러에 진입하기도 전에 예외가 발생하기 때문에,
+  컨트롤러가 호출되기 전에 400 예외가 발생하면서 오류 페이지를 표시한다.
+- price 에 문자를 입력하여 타입 오류가 발생했을 때도 사용자가 입력한 문자를 화면에 남겨야 한다.
+  만약 컨트롤러가 호출된다고 하더라도, price 는 Integer 이기 때문에 입력받은 문자를 보관할 수가 없다.
+  이러한 경우 바인딩이 불가능하므로 사용자가 입력한 문자가 사라져버리고, 사용자는 어떤 내용을 입력하여 오류가 발생된건지 이해하기 어렵다.
+  즉, 사용자가 입력한 값은 어딘가에 별도로 관리가 되어야 한다.
+-->
