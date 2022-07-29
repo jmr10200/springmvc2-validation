@@ -45,7 +45,7 @@ public class ValidationItemControllerV2 {
         return "validation/v2/addForm";
     }
 
-    @PostMapping("/add")
+//    @PostMapping("/add")
     public String addItemV1(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
         /* BindingResult */
         // @ModelAttribute 다음에 와야 한다. BindingResult 는 Model 에 자동으로 포함된다.
@@ -103,6 +103,75 @@ public class ValidationItemControllerV2 {
             // objectName : @ModelAttribute 이름
             // defaultMessage : 오류 기본 메시지
         }
+
+        // validation check : 검증 실패시 다시 입력 폼 표시
+        if (bindingResult.hasErrors()) {
+            log.info("errors={}", bindingResult);
+            // 입력 폼 표시
+            return "validation/v2/addForm";
+        }
+
+        // 검증 통과했을때 실행되는 성공로직
+        // 상품등록
+        Item savedItem = itemRepository.save(item);
+        redirectAttributes.addAttribute("itemId", savedItem.getId());
+        redirectAttributes.addAttribute("status", true);
+        return "redirect:/validation/v2/items/{itemId}";
+    }
+
+    @PostMapping("/add")
+    public String addItemV2(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
+        // V2의 목표 : 사용자가 입력한 값이 오류인 경우, 어떤 값을 입력하여 오류가 되었는지 알 수 있도록 입력한 값을 화면에 남기기
+
+        // 스프링의 바인딩 오류 처리
+        // 타입 오류로 바인딩에 실패하면 스프링은 FieldError 를 생성하면서 사용자가 입력한 값을 넣어둔다.
+        // 그리고 해당 오류를 BindingResult 에 담아서 컨트롤러를 호출한다.
+        // 따라서 타입 오류 같은 바인딩 실패시에도 사용자가 입력한 값과 함께 오류 메시지를 정상 출력할 수 있다.
+
+        // validation check
+        // 검증 로직 : 필드 에러는 FieldError 으로 던진다.
+        if (!StringUtils.hasText(item.getItemName())) {
+            bindingResult.addError(new FieldError("item","itemName", item.getItemName(), false, null, null, "상품명은 필수입니다."));
+            // FieldError 의 rejectedValue 는 오류 발생시 사용자 입력 값을 저장하는 기능을 제공한다. -> item.getItemName()
+            // bindingFailure 는 타입 오류 같은 바인딩이 실패했는지 여부를 적어주면 된다.
+            // 여기서는 바인딩이 실패한 것이 아니므로 false 를 지정한다.
+        }
+        if (item.getPrice() == null || item.getPrice() < 1000 || item.getPrice() > 1000000) {
+            bindingResult.addError(new FieldError("item", "price", item.getPrice(), false, null, null,"가격은 1,000 ~ 1,000,000 까지 허용합니다."));
+        }
+        if (item.getQuantity() == null || item.getQuantity() >= 9999) {
+            bindingResult.addError(new FieldError("item", "quantity", item.getQuantity(), false, null, null,"수량은 최대 9,999 까지 허용합니다."));
+        }
+        /* FieldError 의 두가지 생성자 */
+        // 1. public FieldError(String objectName, String field, String defaultMessage) {}
+        // 2. public FieldError(String objectName, String field, @Nullable Object rejectedValue, boolean bindingFailure,
+        //			@Nullable String[] codes, @Nullable Object[] arguments, @Nullable String defaultMessage) {}
+        // objectName : 오류가 발생한 객체 이름
+        // field : 오류 필드
+        // rejectedValue : 사용자가 입력한 값 (거절된 값, 오류가 된 값)
+        // codes : 메시지 코드
+        // arguments : 메시지에서 사용하는 인자
+        // defaultMessage : 기본 오류 메시지
+
+
+        // 특정 필드가 아닌 복합 룰 검증 (상관관계)
+        if (item.getPrice() != null && item.getQuantity() != null) {
+            int resultPrice = item.getPrice() * item.getQuantity();
+            if (resultPrice < 10000) {
+                // 특정 필드명을 사용할수 없으므로 ObjectError 를 이용한다.
+                bindingResult.addError(new ObjectError("item", null, null, "가격 * 수량의 합은 10,000원 이상이어야 합니다. 현재 값 = " + resultPrice));
+            }
+            /* ObjectError 의 두가지 생성자 */
+            // 1. public ObjectError(String objectName, String defaultMessage) {}
+            // 2. public ObjectError(
+            //			String objectName, @Nullable String[] codes, @Nullable Object[] arguments, @Nullable String defaultMessage) {}
+        }
+
+        // 사용자의 입력 데이터가 컨트롤러의 @ModelAttribute 에 바인딩 되는 시점에 오류가 발생하면 모델 객체에 사용자 입력 값을 유지하기 어렵다.
+        // 예를들어 가격에 숫자가 아닌 문자가 입력되면 가격은 Integer 타입이므로 문자를 보관할 방법이 없다.
+        // 그래서 오류가 발생한 경우 사용자 입력 값을 보관하는 별도의 방법이 필요하다.
+        // 그리고 보관한 사용자 입력 값을 검증 오류 발생시 화면에 다시 출력하면 된다.
+
 
         // validation check : 검증 실패시 다시 입력 폼 표시
         if (bindingResult.hasErrors()) {
