@@ -119,7 +119,7 @@ public class ValidationItemControllerV2 {
         return "redirect:/validation/v2/items/{itemId}";
     }
 
-    @PostMapping("/add")
+//    @PostMapping("/add")
     public String addItemV2(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
         // V2의 목표 : 사용자가 입력한 값이 오류인 경우, 어떤 값을 입력하여 오류가 되었는지 알 수 있도록 입력한 값을 화면에 남기기
 
@@ -188,6 +188,63 @@ public class ValidationItemControllerV2 {
         return "redirect:/validation/v2/items/{itemId}";
     }
 
+    @PostMapping("/add")
+    public String addItemV3(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
+        // V2의 목표 : 오류 메시지의 체계화
+
+        // validation check
+        // 검증 로직 : 필드 에러는 FieldError 으로 던진다.
+        if (!StringUtils.hasText(item.getItemName())) {
+            // MessageSource 를 찾아서 메시지를 조회한다.
+            bindingResult.addError(new FieldError("item","itemName", item.getItemName(), false, new String[]{"required.item.itemName"}, null, null));
+        }
+        if (item.getPrice() == null || item.getPrice() < 1000 || item.getPrice() > 1000000) {
+            // range.item.price=가격은 {0} ~ {1} 까지 허용합니다.
+            // codes : required.item.itemName 를 사용해서 메시지 코드를 지정한다. 메시지 코드는 하나가 아니라 배열로 여러 값을 전달할 수 있는데, 순서대로 매칭해서 처음 매칭되는 메시지가 사용된다.
+            // arguments : Object[]{1000,1000000} 를 사용해서 코드의 {0}, {1} 로 치환할 값을 전달한다.
+            bindingResult.addError(new FieldError("item", "price", item.getPrice(), false,  new String[]{"range.item.price"},  new Object[]{1000, 1000000},null));
+        }
+        if (item.getQuantity() == null || item.getQuantity() >= 9999) {
+            bindingResult.addError(new FieldError("item", "quantity", item.getQuantity(), false, new String[]{"max.item.quantity"}, new Object[]{9999},null));
+        }
+
+        // 특정 필드가 아닌 복합 룰 검증 (상관관계)
+        if (item.getPrice() != null && item.getQuantity() != null) {
+            int resultPrice = item.getPrice() * item.getQuantity();
+            if (resultPrice < 10000) {
+                // 특정 필드명을 사용할수 없으므로 ObjectError 를 이용한다.
+                bindingResult.addError(new ObjectError("item",  new String[]{"totalPriceMin"}, new Object[]{10000, resultPrice}, null));
+            }
+        }
+        /* FieldError 의 두가지 생성자 */
+        // 1. public FieldError(String objectName, String field, String defaultMessage) {}
+        // 2. public FieldError(String objectName, String field, @Nullable Object rejectedValue, boolean bindingFailure,
+        //			@Nullable String[] codes, @Nullable Object[] arguments, @Nullable String defaultMessage) {}
+
+        /* ObjectError 의 두가지 생성자 */
+        // 1. public ObjectError(String objectName, String defaultMessage) {}
+        // 2. public ObjectError(
+        //			String objectName, @Nullable String[] codes, @Nullable Object[] arguments, @Nullable String defaultMessage) {}
+
+        // FieldError , ObjectError 의 생성자는 codes, arguments 를 제공한다.
+        // codes : 메시지 코드
+        // arguments : 메시지에서 사용하는 인자
+
+
+        // validation check : 검증 실패시 다시 입력 폼 표시
+        if (bindingResult.hasErrors()) {
+            log.info("errors={}", bindingResult);
+            // 입력 폼 표시
+            return "validation/v2/addForm";
+        }
+
+        // 검증 통과했을때 실행되는 성공로직
+        // 상품등록
+        Item savedItem = itemRepository.save(item);
+        redirectAttributes.addAttribute("itemId", savedItem.getId());
+        redirectAttributes.addAttribute("status", true);
+        return "redirect:/validation/v2/items/{itemId}";
+    }
     @GetMapping("/{itemId}/edit")
     public String editForm(@PathVariable Long itemId, Model model) {
         Item item = itemRepository.findById(itemId);
