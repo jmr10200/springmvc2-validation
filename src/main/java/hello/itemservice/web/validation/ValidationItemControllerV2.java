@@ -188,9 +188,9 @@ public class ValidationItemControllerV2 {
         return "redirect:/validation/v2/items/{itemId}";
     }
 
-    @PostMapping("/add")
+//    @PostMapping("/add")
     public String addItemV3(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
-        // V2의 목표 : 오류 메시지의 체계화
+        // V3의 목표 : 오류 메시지의 체계화
 
         // validation check
         // 검증 로직 : 필드 에러는 FieldError 으로 던진다.
@@ -245,6 +245,90 @@ public class ValidationItemControllerV2 {
         redirectAttributes.addAttribute("status", true);
         return "redirect:/validation/v2/items/{itemId}";
     }
+
+    @PostMapping("/add")
+    public String addItemV4(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
+        // V4의 목표 : 오류 메시지의 체계화2
+        // FieldError, ObjectError 는 다루기 번거로운 편이다. 오류코드도 공통화 처리로 자동화 할 수 있도록 해보자.
+
+        // BindingResult 는 검증해야 할 객체인 target 바로 뒤에 온다.
+        // 즉, BindingResult 는 검증해야할 객체인 target 을 알고 있다.
+
+        log.info("objectName={}", bindingResult.getObjectName());
+        // objectName=item //@ModelAttribute name
+        log.info("target={}", bindingResult.getTarget());
+        // target=Item(id=null, itemName=상품, price=100, quantity=1234)
+
+        // rejectValue(), reject()
+        // BindingResult 가 제공하는 rejectValue(), reject() 를 사용하면
+        // FieldError, ObjectError 를 직접 생성하지 않고 검증 오류를 다룰 수 있다.
+
+        // validation check
+        if (!StringUtils.hasText(item.getItemName())) {
+            // FieldError 대신 rejectValue() 사용
+            // BindingResult 는 검증하는 대상 객체 target 을 이미 알고있다.
+            // 따라서 target(item) 에 대한 정보는 없어도 된다.
+            bindingResult.rejectValue("itemName", "required");
+        }
+        if (item.getPrice() == null || item.getPrice() < 1000 || item.getPrice() > 1000000) {
+            // FieldError() 의 경우, 오류코드를 range.item.price 와 같이 전체를 입력했다.
+            // rejectValue() 는 오류코드를 range 로 간단하게 입력했다.
+            // 그런데도 문제없이 출력이 잘 된다. 왜? 규칙이 있는데, MessageCodesResolver 가 그 역할을 해준다.
+            bindingResult.rejectValue("price", "range", new Object[]{1000, 1000000}, null);
+        }
+        if (item.getQuantity() == null || item.getQuantity() > 10000) {
+            bindingResult.rejectValue("quantity", "max", new Object[]{9999}, null);
+        }
+        // 오류코드
+        // 1. 상세한 오류코드
+        // required.item.itemName : 상품 이름은 필수 입니다.
+        // range.item.price : 상품의 가격 범위 오류 입니다.
+        // 2. 단순한 오류코드
+        // required : 필수 값 입니다.
+        // range : 범위 오류 입니다.
+        // 단순하게 만들면 범용적이기 때문에 여러 곳에서 사용할 수 있지만, 상세한 메시지를 전달하기 어렵다.
+        // 반대로 하나하나 따로 상세하게 작성하면 너무 범용성이 떨어지고 번거롭다.
+        // 즉, 범용성으로 사용하되, 필요에 따라 상세한 메시지가 전달되도록 메시지에 단계를 설정하는 것이 좋다.
+
+        // #Level1
+        // required.item.itemName: 상품 이름은 필수 입니다.
+        // #Level2
+        // required: 필수 값 입니다.
+        // 이렇게 객체명과 필드명을 조합한 메시지가 있는지 우선 확인하고, 없으면 더 범용적인 메시지를 선택하도록 개발하는게 좋으며,
+        // 범용성있게 잘 개발해두면, 메시지의 추가 만으로도 에러 메시지 관리를 할 수 있게 된다.
+        // 스프링은 MessageCodesResolver 으로 이 기능을 제공한다.
+
+        // 특정 필드가 아닌 복합 룰 검증 (상관관계)
+        if (item.getPrice() != null && item.getQuantity() != null) {
+            int resultPrice = item.getPrice() * item.getQuantity();
+            if (resultPrice < 10000) {
+                // ObjectError 대신 reject() 사용
+                bindingResult.reject("totalPriceMin", new Object[]{10000, resultPrice}, null);
+            }
+        }
+        // rejectValue()
+        // void rejectValue(@Nullable String field, String errorCode, @Nullable Object[] errorArgs, @Nullable String defaultMessage);
+        // field : 오류 필드명
+        // errorCode : 오류 코드 (메시지에 등록된 코드가 아니다. messageResolver 를 위한 오류 코드)
+        // errorArgs : 오류 메시지에서 {0} 을 치환하기 위한 값
+        // defaultMessage : 오류 메시지를 찾을 수 없을 때 사용하는 기본 메시지
+
+
+        // validation check : 검증 실패시 다시 입력 폼 표시
+        if (bindingResult.hasErrors()) {
+            log.info("errors={}", bindingResult);
+            // 입력 폼 표시
+            return "validation/v2/addForm";
+        }
+
+        // 검증 통과했을때 실행되는 성공로직
+        // 상품등록
+        Item savedItem = itemRepository.save(item);
+        redirectAttributes.addAttribute("itemId", savedItem.getId());
+        redirectAttributes.addAttribute("status", true);
+        return "redirect:/validation/v2/items/{itemId}";
+    }
+
     @GetMapping("/{itemId}/edit")
     public String editForm(@PathVariable Long itemId, Model model) {
         Item item = itemRepository.findById(itemId);
