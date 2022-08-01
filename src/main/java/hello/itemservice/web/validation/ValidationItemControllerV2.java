@@ -10,6 +10,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.ObjectError;
+import org.springframework.validation.ValidationUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -264,12 +265,17 @@ public class ValidationItemControllerV2 {
         // FieldError, ObjectError 를 직접 생성하지 않고 검증 오류를 다룰 수 있다.
 
         // validation check
+        /* ValidationUtils 사용 전 */
         if (!StringUtils.hasText(item.getItemName())) {
             // FieldError 대신 rejectValue() 사용
             // BindingResult 는 검증하는 대상 객체 target 을 이미 알고있다.
             // 따라서 target(item) 에 대한 정보는 없어도 된다.
             bindingResult.rejectValue("itemName", "required");
         }
+        /* ValidationUtils 사용 후, 다음과 같이 한줄로도 가능하다. */
+//        ValidationUtils.rejectIfEmptyOrWhitespace(bindingResult, "itemName", "required");
+        // Empty, Whitespace 같은 단순한 기능만 제공함
+
         if (item.getPrice() == null || item.getPrice() < 1000 || item.getPrice() > 1000000) {
             // FieldError() 의 경우, 오류코드를 range.item.price 와 같이 전체를 입력했다.
             // rejectValue() 는 오류코드를 range 로 간단하게 입력했다.
@@ -313,6 +319,11 @@ public class ValidationItemControllerV2 {
         // errorArgs : 오류 메시지에서 {0} 을 치환하기 위한 값
         // defaultMessage : 오류 메시지를 찾을 수 없을 때 사용하는 기본 메시지
 
+        // 정리
+        // 1. rejectValue() 호출 하고
+        // 2. MessageCodesResolver 를 사용하여 검증 에러 코드로 메시지 코드를 생성 (우선순위)
+        // 3. new Field() 를 생성하면서 메시지 코드를 보관
+        // 4. th:errors 에서 메시지 코드들로 메시지를 순서대로 찾아서 출력함
 
         // validation check : 검증 실패시 다시 입력 폼 표시
         if (bindingResult.hasErrors()) {
