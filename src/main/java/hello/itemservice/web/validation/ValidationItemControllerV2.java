@@ -25,6 +25,7 @@ import java.util.Map;
 public class ValidationItemControllerV2 {
 
     private final ItemRepository itemRepository;
+    private final ItemValidator itemValidator;
 
     @GetMapping
     public String items(Model model) {
@@ -247,7 +248,7 @@ public class ValidationItemControllerV2 {
         return "redirect:/validation/v2/items/{itemId}";
     }
 
-    @PostMapping("/add")
+//    @PostMapping("/add")
     public String addItemV4(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
         // V4의 목표 : 오류 메시지의 체계화2
         // FieldError, ObjectError 는 다루기 번거로운 편이다. 오류코드도 공통화 처리로 자동화 할 수 있도록 해보자.
@@ -353,6 +354,28 @@ public class ValidationItemControllerV2 {
         return "redirect:/validation/v2/items/{itemId}";
     }
 
+    @PostMapping("/add")
+    public String addItemV5(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
+        // V5의 목표 : Validator 사용
+
+        // ItemValidator 를 스프링 빈으로 주입받아 validate() 호출
+        // validation check
+        itemValidator.validate(item, bindingResult);
+
+        // validation check : 검증 실패시 다시 입력 폼 표시
+        if (bindingResult.hasErrors()) {
+            log.info("errors={}", bindingResult);
+            // 입력 폼 표시
+            return "validation/v2/addForm";
+        }
+
+        // 검증 통과했을때 실행되는 성공로직
+        // 상품등록
+        Item savedItem = itemRepository.save(item);
+        redirectAttributes.addAttribute("itemId", savedItem.getId());
+        redirectAttributes.addAttribute("status", true);
+        return "redirect:/validation/v2/items/{itemId}";
+    }
     @GetMapping("/{itemId}/edit")
     public String editForm(@PathVariable Long itemId, Model model) {
         Item item = itemRepository.findById(itemId);
