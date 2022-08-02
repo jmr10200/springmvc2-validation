@@ -2,11 +2,17 @@ package hello.itemservice.domain.item;
 
 import lombok.Data;
 import org.hibernate.validator.constraints.Range;
+import org.hibernate.validator.constraints.ScriptAssert;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 
+// Bean Validation 에서 특정 필드(FieldError) 가 아닌 해당 객체 관련 오류(ObjectError)의 처리
+// 메시지 코드 생성 : ScriptAssert.item -> ScriptAssert
+// 그런데 이 방법은 제약이 많고 복잡해서 실무적으로 권장되지는 않는다.
+// 글로벌 에러는 직접 자바코드를 작성하는 것이 낫다.
+//@ScriptAssert(lang = "javascript", script = "_this.price * _this.quantity >= 10000")
 @Data
 public class Item {
 
@@ -15,6 +21,8 @@ public class Item {
     private Long id;
 
     @NotBlank // 공백 x
+    // 다음과 같이 메시지 정의도 가능하다. (프로퍼티 파일이 더 우선된다.)
+//    @NotBlank(message = "공백 입력 불가능!!")
     private String itemName;
 
     @NotNull // null x
