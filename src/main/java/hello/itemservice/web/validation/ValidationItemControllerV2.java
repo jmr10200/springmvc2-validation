@@ -400,9 +400,13 @@ public class ValidationItemControllerV2 {
         // 검증기는 여러개를 등록할 수 있는데, 이때 어떤 검증기가 실행되어야 할지 구분이 필요하다.
         // 구분을 해주는 메소드가 supports() 이다.
         // supports(Item.class) 가 호출되고, 결과가 true 이면 ItemValidator 의 validate() 가 호출된다.
+
         // 해당 컨트롤러에만 적용하는 방법 : @InitBinder 를 이용하여 WebDataBinder 에 검증기를 등록
         // 모든 컨트롤러에 적용(글로벌 설정) : ItemServiceApplication 에 WebMvcConfigurer 를 구현한다.
         // public class ItemServiceApplication implements WebMvcConfigurer {..Override..}
+
+        // @Validated : 스프링이 제공
+        // @Valid : 자바 표준 javax.validation.@Valid
 
         // validation check : 검증 실패시 다시 입력 폼 표시
         if (bindingResult.hasErrors()) {
