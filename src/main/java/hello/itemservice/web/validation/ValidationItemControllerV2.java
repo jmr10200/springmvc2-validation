@@ -325,6 +325,19 @@ public class ValidationItemControllerV2 {
         // 3. new Field() 를 생성하면서 메시지 코드를 보관
         // 4. th:errors 에서 메시지 코드들로 메시지를 순서대로 찾아서 출력함
 
+        /* 스프링이 직접 만든 에러 메시지 처리 */
+        // case 1 : 개발자가 직접 설정한 에러 코드 -> rejectValue() 직접 호출
+        // case 2 : 스프링이 직접 검증 오류에 추가하는 케이스 (주로 타입정보)
+        // price 필드에 문자를 입력하는 경우,
+        // 로그를 확인하면 BindingResult 에 FieldError 가 담겨있고, 다음과 같은 메시지 출력을 확인할 수 있다.
+        // codes [typeMismatch.item.price,typeMismatch.price,typeMismatch.java.lang.Integer,typeMismatch]
+        // 즉, 스프링은 타입 에러가 발생하면 typeMismatch 라는 에러 코드를 사용한다. MessageCodesResolver 로 4가지 코드가 생성된다.
+        // 화면에서는 error.properties 에 메시지를 설정하지 않으면 스프링이 생성하는 기본 메시지가 출력된다.
+        // Failed to convert property value of type java.lang.String to required type java.lang.Integer for property price; nested exception is java.lang.NumberFormatException: For input string: "ㅁㅁㅁ"
+        // 프로퍼티에 typeMismatch 정보를 정의하면 해당 메시지가 출력된다.
+        // 즉 소스코드를 건드리지 않고, 원하는 메시지를 우선순위에 따른 단계별로 설정하여 출력할 수 있다.
+
+
         // validation check : 검증 실패시 다시 입력 폼 표시
         if (bindingResult.hasErrors()) {
             log.info("errors={}", bindingResult);
