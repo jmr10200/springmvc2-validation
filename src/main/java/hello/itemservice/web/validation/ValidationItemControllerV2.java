@@ -11,6 +11,8 @@ import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.ObjectError;
 import org.springframework.validation.ValidationUtils;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -27,6 +29,11 @@ public class ValidationItemControllerV2 {
     private final ItemRepository itemRepository;
     private final ItemValidator itemValidator;
 
+    @InitBinder
+    public void init(WebDataBinder dataBinder) {
+        log.info("init binder {}", dataBinder);
+        dataBinder.addValidators(itemValidator);
+    }
     @GetMapping
     public String items(Model model) {
         List<Item> items = itemRepository.findAll();
@@ -354,12 +361,12 @@ public class ValidationItemControllerV2 {
         return "redirect:/validation/v2/items/{itemId}";
     }
 
-    @PostMapping("/add")
+//    @PostMapping("/add")
     public String addItemV5(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
         // V5의 목표 : Validator 사용
 
-        // ItemValidator 를 스프링 빈으로 주입받아 validate() 호출
         // validation check
+        // Validator 인터페이스 사용방법 1 : ItemValidator 를 스프링 빈으로 직접 주입받아 validate() 호출
         itemValidator.validate(item, bindingResult);
 
         // validation check : 검증 실패시 다시 입력 폼 표시
@@ -376,6 +383,43 @@ public class ValidationItemControllerV2 {
         redirectAttributes.addAttribute("status", true);
         return "redirect:/validation/v2/items/{itemId}";
     }
+
+    @PostMapping("/add")
+    public String addItemV6(@Validated @ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
+        // V5의 목표 : Validator 사용
+
+        /* 스프링이 제공하는 Validator 인터페이스 */
+        // Validator 인터페이스를 사용해서 검증하면 스프링이 제공하는 추가적인 도움을 받을 수 있다.
+
+        // validation check
+        // Validator 인터페이스 사용방법 2 : @InitBinder 를 이용하여 WebDataBinder 에 검증기를 등록 후 사용하는 방법 (선언한 해당 컨트롤러에만 영향)
+        // 검증하고자 하는 Model 에 @Validated 를 정의해준다.
+
+        /* @Validated 어노테이션 */
+        // @Validated 이 붙으면 WebDataBinder 에 등록한 검증기를 찾아서 실행
+        // 검증기는 여러개를 등록할 수 있는데, 이때 어떤 검증기가 실행되어야 할지 구분이 필요하다.
+        // 구분을 해주는 메소드가 supports() 이다.
+        // supports(Item.class) 가 호출되고, 결과가 true 이면 ItemValidator 의 validate() 가 호출된다.
+        // 해당 컨트롤러에만 적용하는 방법 : @InitBinder 를 이용하여 WebDataBinder 에 검증기를 등록
+        // 모든 컨트롤러에 적용(글로벌 설정) : ItemServiceApplication 에 WebMvcConfigurer 를 구현한다.
+        // public class ItemServiceApplication implements WebMvcConfigurer {..Override..}
+
+        // validation check : 검증 실패시 다시 입력 폼 표시
+        if (bindingResult.hasErrors()) {
+            log.info("errors={}", bindingResult);
+            // 입력 폼 표시
+            return "validation/v2/addForm";
+        }
+
+        // 검증 통과했을때 실행되는 성공로직
+        // 상품등록
+        Item savedItem = itemRepository.save(item);
+        redirectAttributes.addAttribute("itemId", savedItem.getId());
+        redirectAttributes.addAttribute("status", true);
+        return "redirect:/validation/v2/items/{itemId}";
+    }
+
+
     @GetMapping("/{itemId}/edit")
     public String editForm(@PathVariable Long itemId, Model model) {
         Item item = itemRepository.findById(itemId);
