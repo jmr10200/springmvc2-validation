@@ -20,6 +20,9 @@ public class MessageCodesResolverTest {
     @Test
     void messageCodesResolverField() {
         String[] messageCodes = codesResolver.resolveMessageCodes("required", "item", "itemName", String.class);
+        // contains() : 중복여부, 순서에 관계없이 값만 일치하는가
+        // containsExactly() : 순서를 포함해서 값이 정확히 일치하는가
+        // containsOnly() : 중복여부, 순서에 관계없이 값과 개수가 일치하는가
         assertThat(messageCodes).containsExactly(
                 "required.item.itemName",
                 "required.itemName",
